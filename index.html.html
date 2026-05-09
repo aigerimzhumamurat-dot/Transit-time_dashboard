@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Transit Time Dashboard · AZL–KMSL 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#F6F9FC;--surface:#FFFFFF;--surface2:#F0F4FA;
+  --navy:#0B1E3A;--navy2:#1A3560;
+  --teal:#0A9BAA;--amber:#D4850A;
+  --green:#16A34A;--red:#DC2626;--yellow:#CA8A04;
+  --text:#0B1E3A;--text2:#4A6280;--text3:#8FA3BA;
+  --border:#DDE6F0;--border2:#C8D8EC;
+  --radius:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;}
+.nav{background:var(--navy);position:sticky;top:0;z-index:100;padding:0 20px;}
+.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:50px;}
+.nav-title{font-size:13px;font-weight:600;color:#fff;letter-spacing:.04em;white-space:nowrap;}
+.nav-links{display:flex;gap:2px;}
+.nav-link{font-size:12px;color:#7AAABB;padding:5px 10px;border-radius:5px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.nav-link:hover{background:rgba(255,255,255,.1);color:#fff;}
+.nav-date{font-size:11px;color:#4A6A7A;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.container{max-width:960px;margin:0 auto;padding:24px 20px;}
+.section{margin-bottom:36px;}
+.section-hdr{margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:10px;}
+.section-hdr h2{font-size:11px;font-weight:600;color:var(--teal);letter-spacing:.09em;text-transform:uppercase;margin-bottom:2px;}
+.section-hdr p{font-size:12px;color:var(--text3);}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.kpi-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden;}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--teal));}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:8px;}
+.kpi-value{font-size:26px;font-weight:600;color:var(--text);line-height:1;font-family:'JetBrains Mono',monospace;}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:6px;}
+.filter-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.ftab{padding:6px 14px;border-radius:20px;border:.5px solid var(--border2);background:transparent;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:5px;}
+.ftab:hover{border-color:var(--navy2);color:var(--navy);}
+.ftab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.ftab .cnt{font-size:10px;padding:1px 6px;border-radius:9px;font-weight:600;background:var(--surface2);color:var(--text3);}
+.ftab.active .cnt{background:rgba(255,255,255,.22);color:#fff;}
+.lot-card{background:var(--surface);border:.5px solid var(--border);border-left:3px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.lot-card[data-s="overdue"]{border-left-color:var(--red);}
+.lot-card[data-s="risk"]{border-left-color:var(--amber);}
+.lot-card[data-s="watch"]{border-left-color:var(--yellow);}
+.lot-card[data-s="ontrack"]{border-left-color:var(--green);}
+.lot-card[data-s="delivered"][data-km="1"]{border-left-color:#A7F3D0;}
+.lot-card[data-s="delivered"][data-km="0"]{border-left-color:#E5E7EB;}
+.lot-hdr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.lot-num{font-size:15px;font-weight:600;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;white-space:nowrap;}
+.b-mm{background:#DBEAFE;color:#1E40AF;} .b-btk{background:#CCFBF1;color:#0F766E;} .b-truck{background:#FEF3C7;color:#92400E;}
+.b-overdue{background:#FEE2E2;color:#991B1B;} .b-risk{background:#FEF3C7;color:#92400E;}
+.b-watch{background:#FEF9C3;color:#713F12;} .b-ontrack{background:#DCFCE7;color:#166534;}
+.b-del-ok{background:#DCFCE7;color:#166534;} .b-del-late{background:#F3F4F6;color:#4B5563;}
+.lot-meta{font-size:12px;color:var(--text3);margin-left:auto;}
+.chain{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;}
+.chain::-webkit-scrollbar{height:3px;} .chain::-webkit-scrollbar-thumb{background:var(--border2);}
+.stage-item{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.stage-pill{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;min-width:72px;text-align:center;}
+.stage-days{font-size:10px;text-align:center;margin-top:3px;font-family:'JetBrains Mono',monospace;min-height:14px;}
+.p-over{background:#FEE2E2;color:#991B1B;border:.5px solid #FECACA;}
+.p-ok{background:#DCFCE7;color:#166534;border:.5px solid #A7F3D0;}
+.p-current{background:#DBEAFE;color:#1E40AF;border:.5px solid #93C5FD;}
+.p-future{background:var(--surface2);color:var(--text3);border:.5px solid var(--border);}
+.chain-sep{color:var(--text3);font-size:12px;padding:7px 3px 0;flex-shrink:0;}
+.prog-wrap{margin-top:4px;}
+.prog-bg{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.prog-labels{display:flex;justify-content:space-between;margin-top:3px;}
+.prog-lbl{font-size:11px;color:var(--text3);}
+.prog-val{font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+.overdue-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;}
+.ot{background:#FEE2E2;color:#991B1B;border:.5px solid #FECACA;border-radius:4px;font-size:10px;font-weight:500;padding:2px 7px;}
+.mode-toggle{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.mtoggle{padding:6px 16px;border-radius:20px;border:.5px solid var(--border2);background:transparent;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;}
+.mtoggle:hover{border-color:var(--navy2);color:var(--navy);}
+.mtoggle.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.mn-sub{font-size:10px;opacity:.7;margin-left:3px;}
+.bn-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius);padding:8px 16px 14px;}
+.bn-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--border);}
+.bn-row:last-child{border-bottom:none;}
+.bn-name{font-size:13px;width:120px;flex-shrink:0;}
+.bn-bar-bg{flex:1;height:10px;background:var(--surface2);border-radius:3px;position:relative;}
+.bn-fill{height:10px;border-radius:3px;position:absolute;top:0;left:0;}
+.bn-kpi-mark{position:absolute;top:-5px;bottom:-5px;width:2px;border-radius:1px;background:var(--amber);}
+.bn-fact{font-size:12px;font-weight:600;width:36px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace;}
+.bn-kpi{font-size:11px;color:var(--text3);width:36px;text-align:center;flex-shrink:0;}
+.bn-dev{font-size:11px;font-weight:600;width:52px;text-align:right;flex-shrink:0;}
+.insight{background:#FFFBEB;border:.5px solid #FDE68A;border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--text2);}
+.insight strong{color:var(--text);}
+.chart-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius);padding:16px;}
+.chart-title{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:14px;text-transform:uppercase;letter-spacing:.06em;}
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;background:var(--surface2);}
+.tbl td{padding:9px 10px;border-bottom:.5px solid var(--border);font-size:12px;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr.ytd td{background:#EEF4FB;font-weight:600;color:var(--teal);border-top:1px solid var(--border);}
+.tbl tr:hover:not(.ytd) td{background:var(--surface2);}
+.mono{font-family:'JetBrains Mono',monospace;}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+@media(max-width:680px){
+  .kpi-grid{grid-template-columns:1fr 1fr;}
+  .nav-links{display:none;} .nav-date{display:none;} .lot-meta{display:none;}
+  .bn-name{width:88px;font-size:12px;}
+}
+@media(max-width:400px){
+  .kpi-value{font-size:20px;} .container{padding:16px 14px;}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <span class="nav-title">AZL · KMSL — Transit Time 2026</span>
+    <div class="nav-links">
+      <a class="nav-link" onclick="scrollSec('sec-tracker')">In Transit</a>
+      <a class="nav-link" onclick="scrollSec('sec-bn')">Bottleneck</a>
+      <a class="nav-link" onclick="scrollSec('sec-delay')">Delays</a>
+      <a class="nav-link" onclick="scrollSec('sec-monthly')">Monthly</a>
+      <a class="nav-link" onclick="scrollSec('sec-mode')">Mode share</a>
+    </div>
+    <span class="nav-date">09 May 2026</span>
+  </div>
+</nav>
+
+<div class="container">
+
+<div class="section" style="margin-bottom:28px;">
+  <div class="kpi-grid" id="kpiGrid"></div>
+</div>
+
+<div class="section" id="sec-tracker">
+  <div class="section-hdr">
+    <h2>01 · Shipment tracker</h2>
+    <p>Completed stages show actual days vs KPI — red pill = exceeded stage target &nbsp;·&nbsp; Use filters to navigate</p>
+  </div>
+  <div class="filter-tabs" id="filterTabs"></div>
+  <div id="lotList"></div>
+</div>
+
+<div class="section" id="sec-bn">
+  <div class="section-hdr">
+    <h2>02 · Bottleneck analysis</h2>
+    <p>Avg days per stage vs KPI · 2026 delivered lots only · amber line = KPI target</p>
+  </div>
+  <div id="bnInsight" class="insight"></div>
+  <div class="mode-toggle" id="modeToggle"></div>
+  <div class="bn-card"><div id="bnRows"></div></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#16A34A;"></div>Under KPI</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#DC2626;"></div>Over KPI</div>
+    <div class="legend-item"><div style="width:2px;height:12px;background:var(--amber);border-radius:1px;flex-shrink:0;"></div>KPI target</div>
+  </div>
+</div>
+
+<div class="section" id="sec-delay">
+  <div class="section-hdr">
+    <h2>03 · Delay breakdown</h2>
+    <p>Avg delay days per lot by month · stacked by category</p>
+  </div>
+  <div class="chart-card">
+    <div style="position:relative;height:260px;">
+      <canvas id="delayChart" role="img" aria-label="Stacked bar chart showing delay days by month">Delay chart</canvas>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="sec-monthly">
+  <div class="section-hdr">
+    <h2>04 · Monthly performance</h2>
+    <p>All delivered lots by dispatch month</p>
+  </div>
+  <div class="chart-card" style="padding:0;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table class="tbl" id="monthlyTable" style="min-width:560px;"></table>
+    </div>
+  </div>
+</div>
+
+<div class="section" id="sec-mode">
+  <div class="section-hdr">
+    <h2>05 · Mode volume share</h2>
+    <p>% of total tonnage per transport mode by month · percentage shown inside each bar</p>
+  </div>
+  <div class="chart-card">
+    <div style="position:relative;height:280px;">
+      <canvas id="modeChart" role="img" aria-label="Horizontal stacked bar chart showing mode share percentages by month">Mode share chart</canvas>
+    </div>
+  </div>
+</div>
+
+<div style="padding:16px 0;text-align:center;font-size:11px;color:var(--text3);">
+  AZL – KMSL Logistics Analytics &nbsp;·&nbsp; Data as of 09 May 2026 &nbsp;·&nbsp; Lot 20 updated: delivered 07 May 2026
+</div>
+
+</div>
+
+<script>
+const DATA = {"lots":[{"lot":73,"month":"November 25","mode":"truck","dest":"Denizli","vol":1016,"elapsed":183,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-99,"delivered":true,"total_tt":82.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":32.0,"kpi":16,"over":true,"done":true,"current":false,"diff":16},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":30.0,"kpi":10,"over":true,"done":true,"current":false,"diff":20},{"name":"Turkey","actual":10.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-30","wx_delay":0},{"lot":74,"month":"November 25","mode":"truck","dest":"Gebze","vol":889,"elapsed":183,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-139,"delivered":true,"total_tt":63.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":23.0,"kpi":16,"over":true,"done":true,"current":false,"diff":7},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":13.0,"kpi":10,"over":true,"done":true,"current":false,"diff":3},{"name":"Turkey","actual":17.0,"kpi":10,"over":true,"done":true,"current":false,"diff":7}],"red_line":"2025-12-21","wx_delay":0},{"lot":75,"month":"November 25","mode":"MM","dest":"Izmir","vol":796,"elapsed":170,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":62.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":10.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":38.0,"kpi":20,"over":true,"done":true,"current":false,"diff":18}],"red_line":"2026-01-13","wx_delay":0},{"lot":75,"month":"November 25","mode":"BTK","dest":"Izmir","vol":537,"elapsed":170,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":57.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":null,"kpi":20,"over":null,"done":true,"current":false,"diff":null}],"red_line":"2026-01-13","wx_delay":0},{"lot":76,"month":"November 25","mode":"truck","dest":"Gebze","vol":381,"elapsed":160,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":51.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":18.0,"kpi":10,"over":true,"done":true,"current":false,"diff":8},{"name":"Turkey","actual":11.0,"kpi":10,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-01-13","wx_delay":0},{"lot":77,"month":"November 25","mode":"truck","dest":"Gebze","vol":508,"elapsed":160,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":45.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":15.0,"kpi":10,"over":true,"done":true,"current":false,"diff":5},{"name":"Turkey","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-13","wx_delay":0},{"lot":78,"month":"November 25","mode":"truck","dest":"Gebze","vol":381,"elapsed":160,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":44.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":16.0,"kpi":10,"over":true,"done":true,"current":false,"diff":6},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-13","wx_delay":0},{"lot":79,"month":"November 25","mode":"truck","dest":"Gebze","vol":127,"elapsed":160,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-13","wx_delay":0},{"lot":80,"month":"November 25","mode":"truck","dest":"Gebze","vol":127,"elapsed":160,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-116,"delivered":true,"total_tt":34.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":2.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":10.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-13","wx_delay":0},{"lot":81,"month":"November 25","mode":"truck","dest":"Denizli","vol":271,"elapsed":160,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-99,"delivered":true,"total_tt":44.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":12.0,"kpi":10,"over":true,"done":true,"current":false,"diff":2},{"name":"Turkey","actual":10.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-01-30","wx_delay":0},{"lot":82,"month":"December 25","mode":"truck","dest":"Gebze","vol":1081,"elapsed":150,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-106,"delivered":true,"total_tt":55.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":22.0,"kpi":10,"over":true,"done":true,"current":false,"diff":12},{"name":"Turkey","actual":11.0,"kpi":10,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-01-23","wx_delay":0},{"lot":82,"month":"December 25","mode":"truck","dest":"Gebze","vol":211,"elapsed":150,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-106,"delivered":true,"total_tt":50.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":14.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":8.0,"kpi":2,"over":true,"done":true,"current":false,"diff":6},{"name":"Alyat port","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":11.0,"kpi":10,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-01-23","wx_delay":0},{"lot":83,"month":"December 25","mode":"BTK","dest":"Izmir","vol":550,"elapsed":141,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-87,"delivered":true,"total_tt":49.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":13.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":null,"kpi":20,"over":null,"done":true,"current":false,"diff":null}],"red_line":"2026-02-11","wx_delay":5.0},{"lot":83,"month":"December 25","mode":"MM","dest":"Izmir","vol":529,"elapsed":141,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-87,"delivered":true,"total_tt":65.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":13.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":36.0,"kpi":20,"over":true,"done":true,"current":false,"diff":16}],"red_line":"2026-02-11","wx_delay":6.0},{"lot":84,"month":"December 25","mode":"truck","dest":"Denizli","vol":127,"elapsed":141,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":53.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":24.0,"kpi":16,"over":true,"done":true,"current":false,"diff":8},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":11.0,"kpi":10,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-02-27","wx_delay":10.0},{"lot":84,"month":"December 25","mode":"truck","dest":"Denizli","vol":127,"elapsed":141,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":53.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":28.0,"kpi":16,"over":true,"done":true,"current":false,"diff":12},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":10.0},{"lot":84,"month":"December 25","mode":"truck","dest":"Denizli","vol":63,"elapsed":141,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":53.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":32.0,"kpi":16,"over":true,"done":true,"current":false,"diff":16},{"name":"Sea","actual":6.0,"kpi":2,"over":true,"done":true,"current":false,"diff":4},{"name":"Alyat port","actual":1.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":10.0},{"lot":85,"month":"December 25","mode":"truck","dest":"Denizli","vol":826,"elapsed":134,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":55.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":17.0,"kpi":16,"over":true,"done":true,"current":false,"diff":1},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":19.0,"kpi":10,"over":true,"done":true,"current":false,"diff":9},{"name":"Turkey","actual":7.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":8.0},{"lot":85,"month":"December 25","mode":"truck","dest":"Denizli","vol":317,"elapsed":134,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":63.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":22.0,"kpi":16,"over":true,"done":true,"current":false,"diff":6},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":23.0,"kpi":10,"over":true,"done":true,"current":false,"diff":13},{"name":"Turkey","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":8.0},{"lot":85,"month":"December 25","mode":"truck","dest":"Denizli","vol":63,"elapsed":134,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":46.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":25.0,"kpi":16,"over":true,"done":true,"current":false,"diff":9},{"name":"Sea","actual":6.0,"kpi":2,"over":true,"done":true,"current":false,"diff":4},{"name":"Alyat port","actual":1.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":8.0},{"lot":85,"month":"December 25","mode":"truck","dest":"Denizli","vol":190,"elapsed":134,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-71,"delivered":true,"total_tt":60.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":31.0,"kpi":16,"over":true,"done":true,"current":false,"diff":15},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":7.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-27","wx_delay":15.0},{"lot":86,"month":"December 25","mode":"truck","dest":"Izmir","vol":275,"elapsed":134,"total_kpi":50.0,"pct_used":100,"pct_rem":0,"days_left":-85,"delivered":true,"total_tt":67.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":22.0,"kpi":16,"over":true,"done":true,"current":false,"diff":6},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":25.0,"kpi":10,"over":true,"done":true,"current":false,"diff":15},{"name":"Turkey","actual":10.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-13","wx_delay":8.0},{"lot":86,"month":"December 25","mode":"truck","dest":"Izmir","vol":106,"elapsed":134,"total_kpi":50.0,"pct_used":100,"pct_rem":0,"days_left":-85,"delivered":true,"total_tt":60.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":39.0,"kpi":16,"over":true,"done":true,"current":false,"diff":23},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":7.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-13","wx_delay":17.0},{"lot":87,"month":"December 25","mode":"truck","dest":"Gebze","vol":64,"elapsed":134,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-90,"delivered":true,"total_tt":62.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":31.0,"kpi":16,"over":true,"done":true,"current":false,"diff":15},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-02-08","wx_delay":15.0},{"lot":1,"month":"January 26","mode":"MM","dest":"Derince","vol":1524,"elapsed":121,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-67,"delivered":true,"total_tt":55.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":17.0,"kpi":16,"over":true,"done":true,"current":false,"diff":1},{"name":"Sea","actual":6.0,"kpi":2,"over":true,"done":true,"current":false,"diff":4},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":21.0,"kpi":20,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-03-03","wx_delay":12.0},{"lot":2,"month":"January 26","mode":"MM","dest":"Derince","vol":1024,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":56.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":16.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":24.0,"kpi":20,"over":true,"done":true,"current":false,"diff":4}],"red_line":"2026-03-24","wx_delay":11.0},{"lot":2,"month":"January 26","mode":"MM","dest":"Derince","vol":55,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":56.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":16.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":10.0,"kpi":5,"over":true,"done":true,"current":false,"diff":5},{"name":"Post-alyat","actual":20.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-24","wx_delay":11.0},{"lot":3,"month":"January 26","mode":"MM","dest":"Derince","vol":191,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":56.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":16.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":24.0,"kpi":20,"over":true,"done":true,"current":false,"diff":4}],"red_line":"2026-03-24","wx_delay":11.0},{"lot":4,"month":"January 26","mode":"MM","dest":"Derince","vol":317,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":56.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":16.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":24.0,"kpi":20,"over":true,"done":true,"current":false,"diff":4}],"red_line":"2026-03-24","wx_delay":11.0},{"lot":5,"month":"January 26","mode":"MM","dest":"Derince","vol":55,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":55.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":19.0,"kpi":16,"over":true,"done":true,"current":false,"diff":3},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":19.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-24","wx_delay":10.0},{"lot":5,"month":"January 26","mode":"MM","dest":"Derince","vol":389,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":55.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":19.0,"kpi":16,"over":true,"done":true,"current":false,"diff":3},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":8.0,"kpi":5,"over":true,"done":true,"current":false,"diff":3},{"name":"Post-alyat","actual":17.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-24","wx_delay":10.0},{"lot":6,"month":"January 26","mode":"MM","dest":"Derince","vol":64,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":56.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":16.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":24.0,"kpi":20,"over":true,"done":true,"current":false,"diff":4}],"red_line":"2026-03-24","wx_delay":11.0},{"lot":7,"month":"January 26","mode":"MM","dest":"Derince","vol":64,"elapsed":100,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-46,"delivered":true,"total_tt":55.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":19.0,"kpi":16,"over":true,"done":true,"current":false,"diff":3},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":8.0,"kpi":5,"over":true,"done":true,"current":false,"diff":3},{"name":"Post-alyat","actual":17.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-24","wx_delay":10.0},{"lot":8,"month":"February 26","mode":"truck","dest":"Gebze","vol":263,"elapsed":93,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-49,"delivered":true,"total_tt":36.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":10.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-21","wx_delay":5.0},{"lot":8,"month":"February 26","mode":"truck","dest":"Gebze","vol":105,"elapsed":93,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-49,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":11.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-21","wx_delay":5.0},{"lot":8,"month":"February 26","mode":"truck","dest":"Gebze","vol":132,"elapsed":93,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-49,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":6.0,"kpi":2,"over":true,"done":true,"current":false,"diff":4},{"name":"Alyat port","actual":4.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-21","wx_delay":5.0},{"lot":8,"month":"February 26","mode":"truck","dest":"Gebze","vol":26,"elapsed":93,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-49,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":11.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-21","wx_delay":5.0},{"lot":9,"month":"February 26","mode":"BTK","dest":"Derince","vol":330,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":46.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":10.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":7.0,"kpi":5,"over":true,"done":true,"current":false,"diff":2},{"name":"Post-alyat","actual":17.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-02","wx_delay":8.0},{"lot":9,"month":"February 26","mode":"BTK","dest":"Derince","vol":483,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":54.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":10.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":12.0,"kpi":5,"over":true,"done":true,"current":false,"diff":7},{"name":"Post-alyat","actual":21.0,"kpi":20,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-04-02","wx_delay":8.0},{"lot":9,"month":"February 26","mode":"BTK","dest":"Derince","vol":76,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":52.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":10.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":13.0,"kpi":5,"over":true,"done":true,"current":false,"diff":8},{"name":"Post-alyat","actual":16.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-02","wx_delay":8.0},{"lot":9,"month":"February 26","mode":"BTK","dest":"Derince","vol":486,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":52.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":19.0,"kpi":16,"over":true,"done":true,"current":false,"diff":3},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":6.0,"kpi":5,"over":true,"done":true,"current":false,"diff":1},{"name":"Post-alyat","actual":16.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-02","wx_delay":5.0},{"lot":9,"month":"February 26","mode":"truck","dest":"Derince","vol":408,"elapsed":91,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-47,"delivered":true,"total_tt":46.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":19.0,"kpi":16,"over":true,"done":true,"current":false,"diff":3},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":10.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-03-23","wx_delay":5.0},{"lot":9,"month":"February 26","mode":"MM","dest":"Derince","vol":275,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":47.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":7.0,"kpi":5,"over":true,"done":true,"current":false,"diff":2},{"name":"Post-alyat","actual":19.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-02","wx_delay":6.0},{"lot":9,"month":"February 26","mode":"MM","dest":"Derince","vol":165,"elapsed":91,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-37,"delivered":true,"total_tt":47.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":5.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":8.0,"kpi":5,"over":true,"done":true,"current":false,"diff":3},{"name":"Post-alyat","actual":18.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-02","wx_delay":6.0},{"lot":10,"month":"February 26","mode":"MM","dest":"Derince","vol":743,"elapsed":79,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-25,"delivered":true,"total_tt":36.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":8.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":2.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":17.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-14","wx_delay":3.0},{"lot":10,"month":"February 26","mode":"MM","dest":"Derince","vol":110,"elapsed":79,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-25,"delivered":true,"total_tt":36.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":8.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":16.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-14","wx_delay":3.0},{"lot":10,"month":"February 26","mode":"MM","dest":"Derince","vol":578,"elapsed":79,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-25,"delivered":true,"total_tt":36.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":8.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":15.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-14","wx_delay":3.0},{"lot":10,"month":"February 26","mode":"MM","dest":"Derince","vol":855,"elapsed":79,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-25,"delivered":true,"total_tt":57.0,"kpi_met":false,"status":"delivered","stages":[{"name":"Railway","actual":7.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":15.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":2.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":31.0,"kpi":20,"over":true,"done":true,"current":false,"diff":11}],"red_line":"2026-04-14","wx_delay":8.0},{"lot":11,"month":"February 26","mode":"truck","dest":"Gebze","vol":381,"elapsed":72,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-28,"delivered":true,"total_tt":43.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":17.0,"kpi":10,"over":true,"done":true,"current":false,"diff":7},{"name":"Turkey","actual":7.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-11","wx_delay":4.0},{"lot":12,"month":"February 26","mode":"MM","dest":"Derince","vol":381,"elapsed":72,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-18,"delivered":true,"total_tt":51.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":29.0,"kpi":20,"over":true,"done":true,"current":false,"diff":9}],"red_line":"2026-04-21","wx_delay":6.0},{"lot":13,"month":"February 26","mode":"truck","dest":"Gebze","vol":952,"elapsed":72,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-28,"delivered":true,"total_tt":43.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":17.0,"kpi":10,"over":true,"done":true,"current":false,"diff":7},{"name":"Turkey","actual":7.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-11","wx_delay":4.0},{"lot":14,"month":"February 26","mode":"truck","dest":"Gebze","vol":318,"elapsed":72,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-28,"delivered":true,"total_tt":40.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":15.0,"kpi":10,"over":true,"done":true,"current":false,"diff":5},{"name":"Turkey","actual":6.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-04-11","wx_delay":4.0},{"lot":15,"month":"February 26","mode":"MM","dest":"Derince","vol":127,"elapsed":72,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-18,"delivered":true,"total_tt":50.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":28.0,"kpi":20,"over":true,"done":true,"current":false,"diff":8}],"red_line":"2026-04-21","wx_delay":6.0},{"lot":16,"month":"February 26","mode":"MM","dest":"Derince","vol":63,"elapsed":72,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-18,"delivered":true,"total_tt":50.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":28.0,"kpi":20,"over":true,"done":true,"current":false,"diff":8}],"red_line":"2026-04-21","wx_delay":6.0},{"lot":17,"month":"March 26","mode":"MM","dest":"Derince","vol":1537,"elapsed":65,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-11,"delivered":true,"total_tt":43.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":21.0,"kpi":20,"over":true,"done":true,"current":false,"diff":1}],"red_line":"2026-04-28","wx_delay":5.0},{"lot":17,"month":"March 26","mode":"BTK","dest":"Derince","vol":686,"elapsed":65,"total_kpi":55.0,"pct_used":100,"pct_rem":0,"days_left":-11,"delivered":true,"total_tt":54.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":8.0,"kpi":7,"over":true,"done":true,"current":false,"diff":1},{"name":"Aktau port","actual":15.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":1.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":27.0,"kpi":20,"over":true,"done":true,"current":false,"diff":7}],"red_line":"2026-04-28","wx_delay":7.0},{"lot":18,"month":"March 26","mode":"truck","dest":"Gebze","vol":1524,"elapsed":51,"total_kpi":45.0,"pct_used":100,"pct_rem":0,"days_left":-7,"delivered":false,"total_tt":51.0,"kpi_met":false,"status":"overdue","stages":[{"name":"Railway","actual":10.0,"kpi":7,"over":true,"done":true,"current":false,"diff":3},{"name":"Aktau port","actual":13.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":10.0,"kpi":2,"over":true,"done":true,"current":false,"diff":8},{"name":"Alyat port","actual":18.0,"kpi":10,"over":null,"done":false,"current":true,"diff":null},{"name":"Turkey","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-05-02","wx_delay":12.0},{"lot":19,"month":"March 26","mode":"MM","dest":"Derince","vol":440,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":false,"total_tt":40.0,"kpi_met":false,"status":"watch","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":6.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":19.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":19,"month":"March 26","mode":"BTK","dest":"Derince","vol":485,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":6.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":14.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":19,"month":"March 26","mode":"BTK","dest":"Derince","vol":27,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":37.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":6.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":12.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":20,"month":"March 26","mode":"truck","dest":"Gebze","vol":572,"elapsed":40,"total_kpi":45.0,"pct_used":89,"pct_rem":11,"days_left":4,"delivered":true,"total_tt":38.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":11.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":3.0,"kpi":2,"over":true,"done":true,"current":false,"diff":1},{"name":"Alyat port","actual":8.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null},{"name":"Turkey","actual":9.0,"kpi":10,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-13","wx_delay":5.0},{"lot":21,"month":"March 26","mode":"BTK","dest":"Derince","vol":127,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":38.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":11.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":22,"month":"March 26","mode":"BTK","dest":"Derince","vol":63,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":38.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":11.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":23,"month":"March 26","mode":"BTK","dest":"Derince","vol":254,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":38.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":11.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":24,"month":"March 26","mode":"BTK","dest":"Derince","vol":64,"elapsed":40,"total_kpi":55.0,"pct_used":73,"pct_rem":27,"days_left":14,"delivered":true,"total_tt":38.0,"kpi_met":true,"status":"delivered","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":4.0,"kpi":2,"over":true,"done":true,"current":false,"diff":2},{"name":"Alyat port","actual":1.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":11.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-23","wx_delay":3.0},{"lot":25,"month":"April 26","mode":"MM","dest":"Derince","vol":1306,"elapsed":33,"total_kpi":55.0,"pct_used":60,"pct_rem":40,"days_left":21,"delivered":false,"total_tt":33.0,"kpi_met":false,"status":"watch","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":4.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":9.0,"kpi":20,"over":false,"done":true,"current":false,"diff":null}],"red_line":"2026-05-30","wx_delay":6.0},{"lot":25,"month":"April 26","mode":"MM","dest":"Derince","vol":28,"elapsed":33,"total_kpi":55.0,"pct_used":60,"pct_rem":40,"days_left":21,"delivered":false,"total_tt":33.0,"kpi_met":false,"status":"watch","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":9.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":2.0,"kpi":2,"over":false,"done":true,"current":false,"diff":null},{"name":"Alyat port","actual":13.0,"kpi":5,"over":null,"done":false,"current":true,"diff":null},{"name":"Post-alyat","actual":null,"kpi":20,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-05-30","wx_delay":6.0},{"lot":26,"month":"April 26","mode":"BTK","dest":"Derince","vol":508,"elapsed":33,"total_kpi":55.0,"pct_used":60,"pct_rem":40,"days_left":21,"delivered":false,"total_tt":33.0,"kpi_met":false,"status":"watch","stages":[{"name":"Railway","actual":9.0,"kpi":7,"over":true,"done":true,"current":false,"diff":2},{"name":"Aktau port","actual":12.0,"kpi":16,"over":false,"done":true,"current":false,"diff":null},{"name":"Sea","actual":5.0,"kpi":2,"over":true,"done":true,"current":false,"diff":3},{"name":"Alyat port","actual":3.0,"kpi":5,"over":false,"done":true,"current":false,"diff":null},{"name":"Post-alyat","actual":null,"kpi":20,"over":null,"done":false,"current":true,"diff":null}],"red_line":"2026-05-30","wx_delay":9.0},{"lot":27,"month":"April 26","mode":"truck","dest":"Gebze","vol":508,"elapsed":11,"total_kpi":45.0,"pct_used":24,"pct_rem":76,"days_left":33,"delivered":false,"total_tt":11.0,"kpi_met":false,"status":"ontrack","stages":[{"name":"Railway","actual":6.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":5.0,"kpi":16,"over":null,"done":false,"current":true,"diff":null},{"name":"Sea","actual":null,"kpi":2,"over":null,"done":false,"current":false,"diff":null},{"name":"Alyat port","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null},{"name":"Turkey","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-06-11","wx_delay":1.0},{"lot":28,"month":"April 26","mode":"MM","dest":"Derince","vol":444,"elapsed":11,"total_kpi":55.0,"pct_used":20,"pct_rem":80,"days_left":43,"delivered":false,"total_tt":11.0,"kpi_met":false,"status":"ontrack","stages":[{"name":"Railway","actual":6.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":5.0,"kpi":16,"over":null,"done":false,"current":true,"diff":null},{"name":"Sea","actual":null,"kpi":2,"over":null,"done":false,"current":false,"diff":null},{"name":"Alyat port","actual":null,"kpi":5,"over":null,"done":false,"current":false,"diff":null},{"name":"Post-alyat","actual":null,"kpi":20,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-06-21","wx_delay":1.0},{"lot":29,"month":"April 26","mode":"truck","dest":"Gebze","vol":381,"elapsed":11,"total_kpi":45.0,"pct_used":24,"pct_rem":76,"days_left":33,"delivered":false,"total_tt":11.0,"kpi_met":false,"status":"ontrack","stages":[{"name":"Railway","actual":6.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":5.0,"kpi":16,"over":null,"done":false,"current":true,"diff":null},{"name":"Sea","actual":null,"kpi":2,"over":null,"done":false,"current":false,"diff":null},{"name":"Alyat port","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null},{"name":"Turkey","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-06-11","wx_delay":1.0},{"lot":30,"month":"April 26","mode":"truck","dest":"Gebze","vol":63,"elapsed":11,"total_kpi":45.0,"pct_used":24,"pct_rem":76,"days_left":33,"delivered":false,"total_tt":11.0,"kpi_met":false,"status":"ontrack","stages":[{"name":"Railway","actual":6.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":5.0,"kpi":16,"over":null,"done":false,"current":true,"diff":null},{"name":"Sea","actual":null,"kpi":2,"over":null,"done":false,"current":false,"diff":null},{"name":"Alyat port","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null},{"name":"Turkey","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-06-11","wx_delay":1.0},{"lot":31,"month":"April 26","mode":"truck","dest":"Gebze","vol":63,"elapsed":11,"total_kpi":45.0,"pct_used":24,"pct_rem":76,"days_left":33,"delivered":false,"total_tt":11.0,"kpi_met":false,"status":"ontrack","stages":[{"name":"Railway","actual":6.0,"kpi":7,"over":false,"done":true,"current":false,"diff":null},{"name":"Aktau port","actual":5.0,"kpi":16,"over":null,"done":false,"current":true,"diff":null},{"name":"Sea","actual":null,"kpi":2,"over":null,"done":false,"current":false,"diff":null},{"name":"Alyat port","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null},{"name":"Turkey","actual":null,"kpi":10,"over":null,"done":false,"current":false,"diff":null}],"red_line":"2026-06-11","wx_delay":1.0}],"bottleneck":{"MM":{"n":19,"fact":[7.1,13.3,2.9,5.2,21.7],"kpi":[7,16,2,5,20],"stages":["Railway","Aktau port","Sea","Alyat port","Post-alyat"]},"BTK":{"n":11,"fact":[7.5,11.3,4.1,4.5,15.2],"kpi":[7,16,2,5,20],"stages":["Railway","Aktau port","Sea","Alyat port","Post-alyat"]},"truck":{"n":9,"fact":[7.3,11.2,3.7,10.2,7.4],"kpi":[7,16,2,10,10],"stages":["Railway","Aktau port","Sea","Alyat port","Turkey"]}},"monthly":[{"label":"Nov '25","delivered":10,"volume":5034,"avg_tt":51.9,"median_tt":48.0,"tt_min":34,"tt_max":82,"kpi_met":5,"kpi_pct":50,"avg_wx":null,"mm_pct":16,"btk_pct":11,"truck_pct":74,"mm_vol":796,"btk_vol":537,"truck_vol":3700,"wx_aktau":null,"wx_sea":null,"dl_alat":null,"wx_batumi":null,"other_tr":null},{"label":"Dec '25","delivered":14,"volume":4531,"avg_tt":56.5,"median_tt":55.0,"tt_min":46,"tt_max":67,"kpi_met":6,"kpi_pct":43,"avg_wx":10.0,"mm_pct":12,"btk_pct":12,"truck_pct":76,"mm_vol":529,"btk_vol":550,"truck_vol":3452,"wx_aktau":9.4,"wx_sea":3.0,"dl_alat":null,"wx_batumi":1.0,"other_tr":null},{"label":"Jan '26","delivered":9,"volume":3683,"avg_tt":55.6,"median_tt":56.0,"tt_min":55,"tt_max":56,"kpi_met":4,"kpi_pct":44,"avg_wx":10.8,"mm_pct":100,"btk_pct":0,"truck_pct":0,"mm_vol":3683,"btk_vol":0,"truck_vol":0,"wx_aktau":9.3,"wx_sea":3.0,"dl_alat":null,"wx_batumi":1.0,"other_tr":1.5},{"label":"Feb '26","delivered":21,"volume":7258,"avg_tt":44.4,"median_tt":46.0,"tt_min":36,"tt_max":57,"kpi_met":19,"kpi_pct":90,"avg_wx":5.4,"mm_pct":45,"btk_pct":19,"truck_pct":36,"mm_vol":3298,"btk_vol":1375,"truck_vol":2585,"wx_aktau":4.3,"wx_sea":3.0,"dl_alat":null,"wx_batumi":1.0,"other_tr":1.0},{"label":"Mar '26","delivered":9,"volume":5778,"avg_tt":40.1,"median_tt":38.0,"tt_min":37,"tt_max":54,"kpi_met":9,"kpi_pct":100,"avg_wx":3.9,"mm_pct":34,"btk_pct":30,"truck_pct":36,"mm_vol":1977,"btk_vol":1706,"truck_vol":2095,"wx_aktau":3.6,"wx_sea":3.0,"dl_alat":7.0,"wx_batumi":1.0,"other_tr":1.0},{"label":"Apr '26","delivered":0,"volume":3302,"avg_tt":null,"median_tt":null,"tt_min":null,"tt_max":null,"kpi_met":0,"kpi_pct":null,"avg_wx":null,"mm_pct":54,"btk_pct":15,"truck_pct":31,"mm_vol":1778,"btk_vol":508,"truck_vol":1016,"wx_aktau":3.0,"wx_sea":2.0,"dl_alat":null,"wx_batumi":null,"other_tr":null}],"summary":{"total_vol":29587,"delivered":63,"in_transit":10,"avg_tt":49.3,"kpi_pct":68,"kpi_met":43,"avg_wx":6.7}};
+const S=DATA.summary, LOTS=DATA.lots, BN=DATA.bottleneck, MONTHLY=DATA.monthly;
+
+const INSIGHTS={
+  MM:   '<strong>Post-alyat</strong> is the main overrun: 21.7d vs 20d KPI <strong>(+9%)</strong>. Sea also over KPI: 2.9d vs 2d (+45%). Aktau port well under target at 13.3d vs 16d KPI.',
+  BTK:  '<strong>Sea crossing</strong> is the critical bottleneck: 4.1d vs 2d KPI <strong>(+105%)</strong>. All other BTK stages comfortably within target.',
+  truck:'<strong>Sea crossing</strong> over KPI: 3.8d vs 2d (+90%). Alyat port marginally over: 10.5d vs 10d (+5%). Other stages on track.',
+};
+
+function scrollSec(id){document.getElementById(id).scrollIntoView({behavior:'smooth'});}
+
+// KPI CARDS
+function buildKPI(){
+  const inRisk=LOTS.filter(l=>!l.delivered&&(l.status==='overdue'||l.status==='risk')).length;
+  const cards=[
+    {label:'Total volume',    val:`${(S.total_vol/1000).toFixed(1)}k mt`, sub:`${S.delivered} delivered · ${S.in_transit} in transit`,accent:'#0A9BAA'},
+    {label:'Avg transit time',val:`${S.avg_tt?.toFixed(1)} days`,         sub:'Actual TT incl. all delays',accent:'#2563EB'},
+    {label:'KPI compliance',  val:`${S.kpi_pct}%`,sub:`${S.kpi_met} of ${S.delivered} on time`,
+     accent:S.kpi_pct>=70?'#16A34A':S.kpi_pct>=50?'#CA8A04':'#DC2626'},
+    {label:'Avg WX delay',    val:`+${S.avg_wx?.toFixed(1)} days`,sub:`${inRisk} lot${inRisk!==1?'s':''} at risk right now`,accent:'#D4850A'},
+  ];
+  document.getElementById('kpiGrid').innerHTML=cards.map(c=>
+    `<div class="kpi-card" style="--accent:${c.accent}">
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value">${c.val||'—'}</div>
+      <div class="kpi-sub">${c.sub}</div>
+    </div>`).join('');
+}
+
+// LOT TRACKER
+const FILTERS=[
+  {key:'intransit',label:'In transit',  fn:l=>!l.delivered},
+  {key:'risk',     label:'At risk',     fn:l=>!l.delivered&&(l.status==='overdue'||l.status==='risk')},
+  {key:'delivered',label:'Delivered',   fn:l=>l.delivered},
+  {key:'all',      label:'All lots',    fn:l=>true},
+];
+let activeFilter='intransit';
+
+function riskBadge(l){
+  if(l.delivered) return l.kpi_met
+    ?`<span class="badge b-del-ok">✓ KPI met · ${l.total_tt}d</span>`
+    :`<span class="badge b-del-late">Delivered late · ${l.total_tt}d</span>`;
+  if(l.status==='overdue') return `<span class="badge b-overdue">Overdue +${Math.abs(l.days_left)}d</span>`;
+  if(l.status==='risk')    return `<span class="badge b-risk">At risk · ${l.days_left}d left</span>`;
+  if(l.status==='watch')   return `<span class="badge b-watch">Watch · ${l.days_left}d left</span>`;
+  return `<span class="badge b-ontrack">On track · ${l.days_left}d left</span>`;
+}
+function fillColor(l){
+  if(l.delivered) return l.kpi_met?'#16A34A':'#9CA3AF';
+  return{overdue:'#DC2626',risk:'#D4850A',watch:'#CA8A04',ontrack:'#16A34A'}[l.status]||'#9CA3AF';
+}
+function mBadge(m){return `<span class="badge b-${m}">${m}</span>`;}
+
+function buildChain(lot){
+  let h='<div class="chain">';
+  lot.stages.forEach((s,i)=>{
+    if(i>0) h+=`<span class="chain-sep">›</span>`;
+    let pc='p-future',days='';
+    if(s.done&&!s.current){
+      pc=s.over?'p-over':'p-ok';
+      if(s.actual!=null){
+        const d=s.actual-s.kpi;
+        days=`<div class="stage-days" style="color:${s.over?'#DC2626':'#16A34A'};">${s.actual}d${d>0?' +'+d+'d':''}</div>`;
+      }
+    } else if(s.current){
+      pc='p-current';
+      days=`<div class="stage-days" style="color:#1E40AF;">● now</div>`;
+    }
+    h+=`<div class="stage-item"><div class="stage-pill ${pc}">${s.name}</div>${days}</div>`;
+  });
+  return h+'</div>';
+}
+
+function buildTracker(){
+  const counts={};
+  FILTERS.forEach(f=>{counts[f.key]=LOTS.filter(f.fn).length;});
+  document.getElementById('filterTabs').innerHTML=FILTERS.map(f=>
+    `<button class="ftab ${f.key===activeFilter?'active':''}" onclick="setFilter('${f.key}')">
+      ${f.label}<span class="cnt">${counts[f.key]}</span>
+    </button>`).join('');
+
+  const filtered=LOTS.filter(FILTERS.find(f=>f.key===activeFilter).fn);
+  const sorted=[...filtered].sort((a,b)=>{
+    const sc={overdue:0,risk:1,watch:2,ontrack:3,delivered:4};
+    return (sc[a.status]??5)-(sc[b.status]??5);
+  });
+
+  document.getElementById('lotList').innerHTML=sorted.map(lot=>{
+    const fc=fillColor(lot);
+    const overStages=lot.stages.filter(s=>s.over);
+    const overTags=overStages.map(s=>`<span class="ot">${s.name}: +${s.diff}d vs KPI</span>`).join('');
+    const mo=lot.month.replace('November','Nov').replace('December','Dec')
+      .replace('January','Jan').replace('February','Feb').replace('March','Mar').replace('April','Apr')
+      .replace(' 25',"'25").replace(' 26',"'26");
+    return `<div class="lot-card" data-s="${lot.status}" data-km="${lot.kpi_met?1:0}">
+      <div class="lot-hdr">
+        <span class="lot-num">Lot ${lot.lot}</span>
+        ${mBadge(lot.mode)}
+        <span style="font-size:12px;color:var(--text2);">${lot.dest||'—'} · ${(lot.vol/1000).toFixed(1)}k mt</span>
+        ${riskBadge(lot)}
+        <span class="lot-meta">${mo}</span>
+      </div>
+      ${buildChain(lot)}
+      <div class="prog-wrap">
+        <div class="prog-bg"><div class="prog-fill" style="width:${lot.pct_used}%;background:${fc};"></div></div>
+        <div class="prog-labels">
+          <span class="prog-lbl">${lot.elapsed}d of ${lot.total_kpi}d KPI</span>
+          <span class="prog-val" style="color:${fc};">${lot.pct_used}% used · ${lot.pct_rem}% remaining</span>
+        </div>
+      </div>
+      ${overTags?`<div class="overdue-tags">${overTags}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function setFilter(k){activeFilter=k;buildTracker();}
+
+// BOTTLENECK
+let curMode='MM';
+function buildBN(){
+  const modes=['MM','BTK','truck'];
+  document.getElementById('modeToggle').innerHTML=modes.map(m=>
+    `<button class="mtoggle ${m===curMode?'active':''}" onclick="setBNMode('${m}')">${m}<span class="mn-sub">${BN[m].n} lots</span></button>`
+  ).join('');
+  document.getElementById('bnInsight').innerHTML=`<strong>${curMode} — </strong>${INSIGHTS[curMode]}`;
+  const d=BN[curMode];
+  const maxV=Math.max(...d.fact.filter(Boolean),...d.kpi)*1.3;
+  document.getElementById('bnRows').innerHTML=d.stages.map((stage,i)=>{
+    const fact=d.fact[i],kpi=d.kpi[i];
+    if(fact==null) return '';
+    const over=fact>kpi;
+    const dev=Math.round(((fact-kpi)/kpi)*100);
+    const col=over?'#DC2626':'#16A34A';
+    const bw=(fact/maxV*100).toFixed(1),kw=(kpi/maxV*100).toFixed(1);
+    return `<div class="bn-row">
+      <div class="bn-name">${stage}</div>
+      <div class="bn-bar-bg">
+        <div class="bn-fill" style="width:${bw}%;background:${col};opacity:.85;"></div>
+        <div class="bn-kpi-mark" style="left:${kw}%;"></div>
+      </div>
+      <div class="bn-fact" style="color:${col};">${fact}d</div>
+      <div class="bn-kpi">${kpi}d</div>
+      <div class="bn-dev" style="color:${col};">${dev>0?'+'+dev:dev}%</div>
+    </div>`;
+  }).join('');
+}
+function setBNMode(m){curMode=m;buildBN();}
+
+// DELAY CHART
+function buildDelayChart(){
+  const labels=MONTHLY.map(m=>m.label);
+  const cats=[
+    {label:'Wx – Aktau',  key:'wx_aktau',  color:'#0A9BAA'},
+    {label:'Wx – Sea',    key:'wx_sea',    color:'#2563EB'},
+    {label:'Delay – Alat',key:'dl_alat',   color:'#16A34A'},
+    {label:'Wx – Batumi', key:'wx_batumi', color:'#7C3AED'},
+    {label:'Other – TR',  key:'other_tr',  color:'#D4850A'},
+  ];
+  new Chart(document.getElementById('delayChart'),{
+    type:'bar',
+    data:{labels,datasets:cats.map(c=>({
+      label:c.label,data:MONTHLY.map(m=>+(m[c.key]||0)),
+      backgroundColor:c.color,borderRadius:3,borderSkipped:false,
+    }))},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:'#4A6280',font:{family:'Inter',size:11},boxWidth:11,padding:12}},
+        datalabels:{display:false},
+      },
+      scales:{
+        x:{stacked:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#4A6280',font:{size:11}}},
+        y:{stacked:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#4A6280',font:{family:"'JetBrains Mono'",size:11},callback:v=>v+'d'}},
+      }
+    }
+  });
+}
+
+// MONTHLY TABLE
+function buildMonthlyTable(){
+  const hdrs=['Period','Delivered','Volume (mt)','Avg TT','Median TT','TT Range','KPI met','Wx delay'];
+  let h=`<thead><tr>${hdrs.map(hd=>`<th>${hd}</th>`).join('')}</tr></thead><tbody>`;
+  let tdel=0,tvol=0,tkm=0,tkt=0,ytdTTs=[];
+  MONTHLY.forEach(m=>{
+    const kc=m.kpi_pct==null?'#8FA3BA':m.kpi_pct>=70?'#16A34A':m.kpi_pct>=50?'#CA8A04':'#DC2626';
+    tdel+=m.delivered;tvol+=m.volume;tkm+=m.kpi_met||0;tkt+=m.delivered;
+    h+=`<tr>
+      <td style="font-weight:500;">${m.label}</td>
+      <td class="mono">${m.delivered}</td>
+      <td class="mono">${(m.volume/1000).toFixed(1)}k</td>
+      <td class="mono">${m.avg_tt?m.avg_tt+'d':'—'}</td>
+      <td class="mono">${m.median_tt?m.median_tt+'d':'—'}</td>
+      <td class="mono" style="color:#8FA3BA;font-size:11px;">${m.tt_min&&m.tt_max?m.tt_min+'–'+m.tt_max+'d':'—'}</td>
+      <td><span class="mono" style="color:${kc};">${m.kpi_pct!=null?m.kpi_pct+'%':'—'}</span></td>
+      <td class="mono" style="color:#D4850A;">${m.avg_wx?'+'+m.avg_wx+'d':'—'}</td>
+    </tr>`;
+  });
+  const ykp=tkt?Math.round(tkm/tkt*100):0;
+  const ykc=ykp>=70?'#16A34A':ykp>=50?'#CA8A04':'#DC2626';
+  const allTTs=LOTS.filter(l=>l.delivered&&l.total_tt).map(l=>l.total_tt);
+  const ytdAvg=allTTs.length?Math.round(allTTs.reduce((a,b)=>a+b,0)/allTTs.length*10)/10:null;
+  h+=`</tbody><tfoot><tr class="ytd">
+    <td>YTD 2026</td><td class="mono">${tdel}</td><td class="mono">${(tvol/1000).toFixed(1)}k</td>
+    <td class="mono">${ytdAvg?ytdAvg+'d':'—'}</td><td class="mono">—</td><td class="mono">—</td>
+    <td><span class="mono" style="color:${ykc};">${ykp}%</span></td>
+    <td class="mono" style="color:#D4850A;">+${S.avg_wx?.toFixed(1)}d</td>
+  </tr></tfoot>`;
+  document.getElementById('monthlyTable').innerHTML=h;
+}
+
+// MODE SHARE CHART — single stacked bar with % labels inside
+function buildModeChart(){
+  const labels=MONTHLY.map(m=>m.label);
+  const mmP=MONTHLY.map(m=>m.mm_pct);
+  const btkP=MONTHLY.map(m=>m.btk_pct);
+  const trP=MONTHLY.map(m=>m.truck_pct);
+  const mmV=MONTHLY.map(m=>(m.mm_vol/1000).toFixed(1));
+  const btkV=MONTHLY.map(m=>(m.btk_vol/1000).toFixed(1));
+  const trV=MONTHLY.map(m=>(m.truck_vol/1000).toFixed(1));
+
+  new Chart(document.getElementById('modeChart'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'MM',   data:mmP.map(v=>+(v||0)),  backgroundColor:'#2563EB',borderRadius:0,borderSkipped:false},
+      {label:'BTK',  data:btkP.map(v=>+(v||0)), backgroundColor:'#0A9BAA',borderRadius:0,borderSkipped:false},
+      {label:'Truck',data:trP.map(v=>+(v||0)),  backgroundColor:'#D4850A',borderRadius:0,borderSkipped:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      indexAxis:'y',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{color:'#4A6280',font:{family:'Inter',size:11},boxWidth:12,padding:14}
+        },
+        tooltip:{callbacks:{label:ctx=>{
+          const i=ctx.dataIndex;
+          const vMap={MM:mmV,BTK:btkV,Truck:trV};
+          const vol=(vMap[ctx.dataset.label]||[])[i];
+          return ` ${ctx.dataset.label}: ${ctx.parsed.x}%  ·  ${vol}k mt`;
+        }}},
+        datalabels:{
+          display:ctx=>{const v=ctx.dataset.data[ctx.dataIndex]; return typeof v==='number'&&v>=8;},
+          color:'#fff',
+          font:{family:'Inter',size:11,weight:'600'},
+          formatter:(val)=>Math.round(val)+'%',
+          anchor:'center',
+          align:'center',
+          clamp:true,
+          clip:true,
+        },
+      },
+      scales:{
+        x:{stacked:true,max:100,grid:{color:'rgba(0,0,0,.04)'},ticks:{color:'#4A6280',font:{size:11},callback:v=>v+'%'}},
+        y:{stacked:true,grid:{display:false},ticks:{color:'#0B1E3A',font:{size:12}}},
+      }
+    }
+  });
+}
+
+if(typeof ChartDataLabels!=='undefined'){Chart.register(ChartDataLabels);}
+buildKPI();buildTracker();buildBN();buildDelayChart();buildMonthlyTable();buildModeChart();
+</script>
+</body>
+</html>
